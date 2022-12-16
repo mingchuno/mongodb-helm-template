@@ -1,0 +1,20 @@
+architecture: 'replicaset'
+auth:
+  enabled: true
+  rootUser: root
+  rootPassword: 'this_is_root_password'
+  databases:
+    - my_database_for_user_1
+    - my_database_for_user_2
+  usernames:
+    - extra_user_1
+    - extra_user_2
+  passwords:
+    - 'extra_user_1_password'
+    - 'extra_user_2_password'
+tls:
+  caCert: 'Custom CA certificated (base64 encoded)'
+  caKey: 'CA certificate private key (base64 encoded)'
+replicaCount: 3
+persistence:
+  size: 3Gi
