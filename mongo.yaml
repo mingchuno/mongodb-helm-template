@@ -30,7 +30,7 @@ type: Opaque
 data:
   mongodb-root-password: "dGhpc19pc19yb290X3Bhc3N3b3Jk"
   mongodb-passwords: "ZXh0cmFfdXNlcl8xX3Bhc3N3b3JkLGV4dHJhX3VzZXJfMl9wYXNzd29yZA=="
-  mongodb-replica-set-key: "RDFpcnJIVGxBSA=="
+  mongodb-replica-set-key: "S2w1NkM3QWNGVA=="
 ---
 # Source: mongodb/templates/common-scripts-cm.yaml
 apiVersion: v1
@@ -183,6 +183,34 @@ spec:
     app.kubernetes.io/name: mongodb
     app.kubernetes.io/instance: my-mongodb
     app.kubernetes.io/component: arbiter
+---
+# Source: mongodb/templates/metrics-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-mongodb-metrics
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: mongodb
+    helm.sh/chart: mongodb-13.6.1
+    app.kubernetes.io/instance: my-mongodb
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: metrics
+  annotations:
+    prometheus.io/path: /metrics
+    prometheus.io/port: '9216'
+    prometheus.io/scrape: "true"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9216
+      targetPort: metrics
+      protocol: TCP
+      name: http-metrics
+  selector:
+    app.kubernetes.io/name: mongodb
+    app.kubernetes.io/instance: my-mongodb
+    app.kubernetes.io/component: mongodb
 ---
 # Source: mongodb/templates/replicaset/headless-svc.yaml
 apiVersion: v1
@@ -487,6 +515,51 @@ spec:
               mountPath: /scripts/setup.sh
               subPath: setup.sh
             
+        - name: metrics
+          image: docker.io/bitnami/mongodb-exporter:0.35.0-debian-11-r14
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+          command:
+            - /bin/bash
+            - -ec
+          args:
+            - |
+              /bin/mongodb_exporter --collect-all --compatible-mode --web.listen-address ":9216" --mongodb.uri "mongodb://$MONGODB_ROOT_USER:$(echo $MONGODB_ROOT_PASSWORD | sed -r "s/@/%40/g;s/:/%3A/g")@localhost:27017/admin?" 
+          env:
+            - name: MONGODB_ROOT_USER
+              value: "root"
+            - name: MONGODB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-mongodb
+                  key: mongodb-root-password
+          volumeMounts:
+          ports:
+            - name: metrics
+              containerPort: 9216
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 5
+            httpGet:
+              path: /metrics
+              port: metrics
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+            httpGet:
+              path: /metrics
+              port: metrics
+          resources:
+            limits: {}
+            requests: {}
       volumes:
         - name: common-scripts
           configMap:

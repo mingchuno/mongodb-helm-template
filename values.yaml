@@ -18,3 +18,23 @@ tls:
 replicaCount: 3
 persistence:
   size: 3Gi
+metrics:
+  enabled: true
+customLivenessProbe:
+  tcpSocket:
+    port: mongodb
+  initialDelaySeconds: 5
+  periodSeconds: 20
+  timeoutSeconds: 10
+  successThreshold: 1
+  failureThreshold: 30
+customReadinessProbe:
+  tcpSocket:
+    port: mongodb
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+startupProbe:
+  enabled: true
